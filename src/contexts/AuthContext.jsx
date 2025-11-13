@@ -1,95 +1,97 @@
-// src/contexts/AuthContext.jsx
-import { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
-import { setAuthToken, removeAuthToken } from "../utils/auth";
+import { useNavigate } from "react-router-dom";
 
-// 创建身份验证上下文（命名导出，供其他组件使用）
-export const AuthContext = createContext();
+const AuthContext = createContext();
 
-// 改为默认导出 AuthProvider 组件（关键修改）
-export default function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // 初始化：检查本地存储的令牌
+  // 设置默认请求头
   useEffect(() => {
-    const token = localStorage.getItem("token");
     if (token) {
-      setAuthToken(token);
-      fetchUserProfile();
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
-      setLoading(false);
+      delete axios.defaults.headers.common["Authorization"];
     }
-  }, []);
+  }, [token]);
 
-  // 登录函数
+  // 登录
   const login = async (email, password) => {
     try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/users/login`,
-        { email, password }
-      );
-      const { token, user } = res.data;
-      localStorage.setItem("token", token);
-      setAuthToken(token);
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/users/login`, {
+        email,
+        password,
+      });
+      const { user, token } = res.data;
       setUser(user);
-      return true;
+      setToken(token);
+      localStorage.setItem("token", token);
+      navigate("/");
+      return { success: true };
     } catch (err) {
-      console.error("Login error:", err.response?.data || err.message);
-      return false;
+      return {
+        success: false,
+        message: err.response?.data?.message || "登录失败，请检查账号密码",
+      };
     }
   };
 
-  // 注册函数
+  // 注册
   const register = async (userData) => {
     try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/users/register`,
-        userData
-      );
-      return true;
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/users/register`, userData);
+      const { user, token } = res.data;
+      setUser(user);
+      setToken(token);
+      localStorage.setItem("token", token);
+      navigate("/");
+      return { success: true };
     } catch (err) {
-      console.error("Register error:", err.response?.data || err.message);
-      return false;
+      return {
+        success: false,
+        message: err.response?.data?.message || "注册失败，请重试",
+      };
     }
   };
 
-  // 退出登录函数
+  // 退出登录
   const logout = () => {
-    localStorage.removeItem("token");
-    removeAuthToken();
     setUser(null);
+    setToken(null);
+    localStorage.removeItem("token");
+    navigate("/login");
   };
 
-  // 获取用户信息
-  const fetchUserProfile = async () => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/users/me`
-      );
-      setUser(res.data);
-    } catch (err) {
-      console.error("Fetch user error:", err.response?.data || err.message);
-      localStorage.removeItem("token");
-      removeAuthToken();
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 验证令牌有效性
+  useEffect(() => {
+    const verifyToken = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/me`);
+        setUser(res.data);
+      } catch (err) {
+        setToken(null);
+        localStorage.removeItem("token");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // 向子组件提供上下文值
+    verifyToken();
+  }, [token]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        register,
-        logout,
-        isAuthenticated: !!user,
-      }}
-    >
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
+
+export const useAuth = () => useContext(AuthContext);

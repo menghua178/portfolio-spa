@@ -1,43 +1,51 @@
-import './App.css';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import AuthProvider from "./contexts/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
-// 组件导入
-import Header from "./components/Header";
-import Footer from "./components/Footer";
+// 页面组件
 import Home from "./pages/Home";
 import Projects from "./pages/Projects";
-import Blog from "./pages/Blog";
-import BlogDetail from "./pages/BlogDetail";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Admin from "./pages/Admin";
+import Admin from "./pages/Admin"; // 单文件管理员页面
+
+// 组件
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+
+// 受保护路由简化版
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <div className="py-16 flex justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  return children;
+};
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <Header />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:id" element={<BlogDetail />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute>
-                <Admin />
-              </ProtectedRoute>
-            } 
-          />
-        </Routes>
-        <Footer />
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className="flex-grow pt-16">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/login" element={<Login />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
       </AuthProvider>
     </Router>
   );

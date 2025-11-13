@@ -1,19 +1,26 @@
-// src/components/ProtectedRoute.jsx
-import { Outlet, Navigate } from "react-router-dom";
-import { useContext } from "react";
-import { AuthContext } from "../contexts/AuthContext";
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "./AuthContext";
+import Skeleton from "./components/Skeleton";
 
-// 定义组件函数
-function ProtectedRoute() {
-  const { isAuthenticated, loading } = useContext(AuthContext);
+const ProtectedRoute = () => {
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // 加载状态
+    // 加载骨架屏
+    return (
+      <div className="section-container">
+        <Skeleton height="80vh" rounded="xl" />
+      </div>
+    );
   }
 
-  // 未登录则重定向到登录页，已登录则显示子路由
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" />;
-}
+  // 未登录跳转登录页
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: window.location.pathname }} />;
+  }
 
-// 关键：默认导出组件
+  return <Outlet />;
+};
+
 export default ProtectedRoute;
